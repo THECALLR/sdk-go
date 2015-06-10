@@ -1,7 +1,7 @@
 sdk-go
 ======
 
-SDK in Go for THECALLR API
+SDK in Go for CALLR API
 
 ## Quick start
 Install the Go way
