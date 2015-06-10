@@ -1,8 +1,8 @@
 /**
-* THECALLR webservice communication library
+* CALLR webservice communication library
 **/
 
-package thecallr
+package callr
 
 import (
 	"bytes"
@@ -15,7 +15,7 @@ import (
 	"time"
 )
 
-type Thecallr struct {
+type Callr struct {
 	Login    string
 	Password string
 	ApiUrl   string
@@ -44,16 +44,16 @@ type Error struct {
 	Data map[string]interface{}
 }
 
-var TC Thecallr
+var TC Callr
 
 /*******************************************************************************
-*** Thecallr Methods
+*** Callr Methods
 *******************************************************************************/
 
 /**
 * Convert Credentials to base64 using "Login:Password" format
 **/
-func (t Thecallr) Base64() string {
+func (t Callr) Base64() string {
 	return base64.StdEncoding.EncodeToString([]byte(t.Login + ":" + t.Password))
 }
 
@@ -105,14 +105,14 @@ func Setup(login, password string, config *Config) {
 }
 
 /**
-* Send a request to THECALLR webservice
+* Send a request to CALLR webservice
 **/
 func Call(args ...interface{}) (*Response, *Error) {
 	return Send(args[0].(string), args[1:])
 }
 
 /**
-* Send a request to THECALLR webservice
+* Send a request to CALLR webservice
 **/
 func Send(method string, params []interface{}, id ...int) (*Response, *Error) {
 	auth := CheckAuth()

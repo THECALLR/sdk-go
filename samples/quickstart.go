@@ -7,8 +7,8 @@ import (
 
 func main() {
 
-	// initialize instance Thecallr
-	thecallr.Setup("login", "password", nil)
+	// initialize instance Callr
+	callr.Setup("login", "password", nil)
 
 	// an optional third parameter let you add options like proxy support
 	// proxy must be in url standard format
@@ -16,14 +16,14 @@ func main() {
 	// http[s]://host:port
 	// http[s]://host
 
-	// var config thecallr.Config
+	// var config callr.Config
 	// config.Proxy = "http://foo:bar@example.com:8080"
-	// thecallr.Setup("login", "password", &config)
-	
+	// callr.Setup("login", "password", &config)
+
 
 	// Example to send a SMS
 	// 1. "call" method: each parameter of the method as an argument
-	result, err := thecallr.Call("sms.send", "THECALLR", "+33123456789", "Hello, world", map[string]interface{}{
+	result, err := callr.Call("sms.send", "CALLR", "+33123456789", "Hello, world", map[string]interface{}{
 		"flash_message": false,
 	})
 
@@ -38,14 +38,14 @@ func main() {
 
 	// 2. "send" method: parameter of the method is an array
 	my_array := []interface{}{
-		"THECALLR",
+		"CALLR",
 		"+33123456789",
 		"Hello, world",
 		map[string]interface{}{
 			"flash_message": false,
 		},
 	}
-	result, err = thecallr.Send("sms.send", my_array)
+	result, err = callr.Send("sms.send", my_array)
 
 	// error management
 	if err != nil {
