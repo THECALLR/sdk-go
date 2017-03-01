@@ -13,6 +13,8 @@ import (
 	"net/http"
 	"net/url"
 	"time"
+	"runtime"
+	"fmt"
 )
 
 type Callr struct {
@@ -45,6 +47,7 @@ type Error struct {
 }
 
 var TC Callr
+const SDK_VERSION = "0.1"
 
 /*******************************************************************************
 *** Callr Methods
@@ -90,7 +93,7 @@ func (obj *Json) make(method string, params []interface{}, id []int) *Json {
 
 func init() {
 	rand.Seed(time.Now().UnixNano()) // Random seed generator
-	TC.ApiUrl = "https://api.thecallr.com"
+	TC.ApiUrl = "https://api.callr.com/json-rpc/v1.1/"
 }
 
 /**
@@ -138,6 +141,7 @@ func Send(method string, params []interface{}, id ...int) (*Response, *Error) {
 
 	req.Header.Add("Authorization", "Basic "+TC.Base64())
 	req.Header.Add("Content-Type", "application/json-rpc; charset=utf-8")
+	req.Header.Add("User-Agent", fmt.Sprintf("sdk=GO; sdk-version=%s; lang-version=%s; platform=%s", SDK_VERSION, runtime.Version(), runtime.GOOS))
 
 	resp, err := client.Do(req)
 
