@@ -17,6 +17,12 @@ import "github.com/THECALLR/sdk-go"
 ```
 
 ## Usage
+### Login-As
+```go
+err := callr.SetLoginAs("user", "foo") /* Login as user foo */
+err := callr.SetLoginAs("account", "foo") /* Login as account foo */
+```
+
 ### Sending SMS
 
 #### Without options

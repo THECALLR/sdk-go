@@ -15,12 +15,14 @@ import (
 	"time"
 	"runtime"
 	"fmt"
+	"strings"
 )
 
 type Callr struct {
 	Login    string
 	Password string
 	ApiUrl   string
+	LoginAs  string
 	Config   *Config
 }
 
@@ -107,6 +109,23 @@ func Setup(login, password string, config *Config) {
 	TC.Config = config
 }
 
+func SetLoginAs(AsType string, AsTarget string) (*Error) {
+	switch strings.toLower(AsType) {
+	case "user":
+		AsType = "User.login"
+		break
+	
+	case "account":
+		AsType = "Account.hash"
+		break
+	
+	default:
+		return NewError("LOGIN_AS_WRONG_TYPE", 2, nil)
+	}
+
+	TC.LoginAs = fmt.Sprintf("%s %s", AsType, AsTarget)
+}
+
 /**
 * Send a request to CALLR webservice
 **/
@@ -142,6 +161,10 @@ func Send(method string, params []interface{}, id ...int) (*Response, *Error) {
 	req.Header.Add("Authorization", "Basic "+TC.Base64())
 	req.Header.Add("Content-Type", "application/json-rpc; charset=utf-8")
 	req.Header.Add("User-Agent", fmt.Sprintf("sdk=GO; sdk-version=%s; lang-version=%s; platform=%s", SDK_VERSION, runtime.Version(), runtime.GOOS))
+
+	if TC.LoginAs {
+		req.Header.add("CALLR-Login-As", TC.LoginAs)
+	}
 
 	resp, err := client.Do(req)
 
