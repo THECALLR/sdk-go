@@ -10,17 +10,16 @@ func main() {
 
 	// initialize instance Callr
 	// retrieve CALLR credentials from environment variables
-	callr.Setup(os.Getenv("CALLR_LOGIN"), os.Getenv("CALLR_PASS"), nil)
+	callr.Auth = LoginPasswordAuth(os.Getenv("CALLR_LOGIN"), os.Getenv("CALLR_PASS"))
 
-	// an optional third parameter let you add options like proxy support
-	// proxy must be in url standard format
+	// if you need to set a proxy, you have to call the deprecated Setup method or directly
+	// feed the callr.Config.Proxy attribute
 	// http[s]://user:password@host:port
 	// http[s]://host:port
 	// http[s]://host
 
 	// var config callr.Config
 	// config.Proxy = "http://foo:bar@example.com:8080"
-	// callr.Setup("login", "password", &config)
 
 	// check for destination phone number parameter
 	if len(os.Args) < 2 {
