@@ -17,9 +17,55 @@ import (
 	"fmt"
 )
 
+type Auth interface {
+	Apply(request Request)
+	LogAs(as_type string, as_target string) Error
+}
+
+type LoginPasswordAuth struct {
+	login	 string
+	password string
+	logAs	 string
+}
+
+func LoginPassword(login string, password string) LoginPasswordAuth {
+	return LoginPasswordAuth{login, password}
+}
+
+func (LoginPasswordAuth *auth) Apply(request Request) {
+	encoded = base64.StdEncoding.EncodeToString([]byte(auth.login + ":" + auth.password))
+
+	request.Header.Add("Authorization", "Basic "+encoded)
+
+	if auth.logAs {
+		request.Header.add("CALLR-Login-As", auth.logAs)
+	}
+}
+
+func (LoginPasswordAuth *auth) LogAs(as_type string, as_target string) {
+	if as_type == "" && as_target == "" {
+		auth.logAs = ""
+		return
+	}
+
+	switch strings.toLower(as_type) {
+	case "user":
+		as_type = "User.login"
+		break
+	
+	case "account":
+		as_type = "Account.hash"
+		break
+	
+	default:
+		return NewError("LOGIN_AS_WRONG_TYPE", 2, nil)
+	}
+ 
+	auth.logAs = fmt.Sprintf("%s %s", as_type, as_target)
+}
+
 type Callr struct {
-	Login    string
-	Password string
+	Auth	 Auth
 	ApiUrl   string
 	Config   *Config
 }
@@ -102,8 +148,10 @@ func init() {
 * @param string Password
 **/
 func Setup(login, password string, config *Config) {
-	TC.Login = login
-	TC.Password = password
+	if login != "" && password != "" {
+		TC.Auth = LoginPasswordAuth(login, password)
+	}
+
 	TC.Config = config
 }
 
@@ -118,10 +166,10 @@ func Call(args ...interface{}) (*Response, *Error) {
 * Send a request to CALLR webservice
 **/
 func Send(method string, params []interface{}, id ...int) (*Response, *Error) {
-	auth := CheckAuth()
-	if auth != nil {
-		return nil, auth
+	if TC.Auth == nil {
+		return nil, NewError("CREDENTIALS_NOT_SET", -1, nil)
 	}
+
 	// create object for json encode
 	object := new(Json).make(method, params, id)
 
@@ -139,9 +187,10 @@ func Send(method string, params []interface{}, id ...int) (*Response, *Error) {
 	}
 	req, err := http.NewRequest("POST", TC.ApiUrl, bytes.NewBuffer(object.ToString()))
 
-	req.Header.Add("Authorization", "Basic "+TC.Base64())
 	req.Header.Add("Content-Type", "application/json-rpc; charset=utf-8")
 	req.Header.Add("User-Agent", fmt.Sprintf("sdk=GO; sdk-version=%s; lang-version=%s; platform=%s", SDK_VERSION, runtime.Version(), runtime.GOOS))
+
+	TC.Auth.Apply(req)
 
 	resp, err := client.Do(req)
 
@@ -180,13 +229,6 @@ func ParseResponse(r *http.Response) (resp *Response, error *Error) {
 	}
 
 	return
-}
-
-func CheckAuth() *Error {
-	if len(TC.Login) == 0 || len(TC.Password) == 0 {
-		return NewError("CREDENTIALS_NOT_SET", -1, nil)
-	}
-	return nil
 }
 
 func NewError(s string, code int, data map[string]interface{}) (err *Error) {
