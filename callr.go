@@ -1,198 +1,199 @@
-/**
-* CALLR webservice communication library
-**/
-
+// Package callr implements the CALLR API, using JSON-RPC 2.0. See https://www.callr.com/ and https://www.callr.com/docs/.
+//
+// Usage
+//
+//    package main
+//
+//    import (
+//        "fmt"
+//        "os"
+//
+//        callr "github.com/THECALLR/sdk-go"
+//    )
+//
+//    func main() {
+//        // use Basic Auth (not recommended)
+//        // api := callr.NewWithBasicAuth("login", "password")
+//
+//        // or use Api Key Auth (recommended)
+//        api := api.NewWithAPIKeyAuth("key")
+//
+//        // optional: set a proxy
+//        // api.SetProxy("http://proxy:port")
+//
+//        // check for destination phone number parameter
+//        if len(os.Args) < 2 {
+//            fmt.Println("Please supply destination phone number!")
+//            os.Exit(1)
+//        }
+//
+//        // Example to send a SMS
+//        result, err := api.Call("sms.send", "SMS", os.Args[1], "Hello, world", nil)
+//
+//        // error management
+//        if err != nil {
+//            if e, ok := err.(*callr.JSONRPCError); ok {
+//                fmt.Printf("Remote error: code:%d message:%s data:%v\n", e.Code, e.Message, e.Data)
+//            } else {
+//                fmt.Println("Local error: ", err)
+//            }
+//            os.Exit(1)
+//        }
+//
+//        fmt.Println(result)
+//    }
 package callr
 
 import (
 	"bytes"
 	"encoding/base64"
 	"encoding/json"
+	"fmt"
 	"io/ioutil"
 	"math/rand"
 	"net/http"
 	"net/url"
-	"time"
 	"runtime"
-	"fmt"
+	"time"
 )
 
-type Callr struct {
-	Login    string
-	Password string
-	ApiUrl   string
-	Config   *Config
-}
+// internal types
 
-type Config struct {
-	Proxy string
-}
-
-type Json struct {
-	Jsonrpc string        `json:"jsonrpc"`
-	Id      int           `json:"id"`
+type jsonRCPRequest struct {
+	ID      int64         `json:"id"`
+	JSONRPC string        `json:"jsonrpc"`
 	Method  string        `json:"method"`
 	Params  []interface{} `json:"params"`
 }
 
-type Response struct {
-	Body string
-	Json map[string]interface{}
+type jsonRPCResponse struct {
+	ID      int64         `json:"id"`
+	JSONRPC string        `json:"jsonrpc"`
+	Result  interface{}   `json:"result,omitempty"`
+	Error   *JSONRPCError `json:"error,omitempty"`
 }
 
-type Error struct {
-	Msg  string
-	Code int
-	Data map[string]interface{}
+// API represents a connection to the CALLR API.
+type API struct {
+	url    string
+	auth   string
+	client *http.Client
 }
 
-var TC Callr
-const SDK_VERSION = "0.1"
-
-/*******************************************************************************
-*** Callr Methods
-*******************************************************************************/
-
-/**
-* Convert Credentials to base64 using "Login:Password" format
-**/
-func (t Callr) Base64() string {
-	return base64.StdEncoding.EncodeToString([]byte(t.Login + ":" + t.Password))
+// JSONRPCError is a JSON-RPC 2.0 error, returned by the API. It satisfies the native error interface.
+type JSONRPCError struct {
+	Code    int64       `json:"code"`
+	Message string      `json:"message"`
+	Data    interface{} `json:"data"`
 }
 
-/*******************************************************************************
-*** Json Methods
-*******************************************************************************/
+const (
+	apiURL         = "https://api.callr.com/json-rpc/v1.1/"
+	sdkVersion     = "1.0"
+	jsonrpcVersion = "2.0"
+)
 
-/**
-* Convert object (struct) to JSON string
-**/
-func (obj *Json) ToString() (data []byte) {
-	data, _ = json.Marshal(obj)
-	return
-}
-
-/**
-* Format params to object
-**/
-func (obj *Json) make(method string, params []interface{}, id []int) *Json {
-	obj.Jsonrpc = "2.0"
-	obj.Method = method
-	obj.Params = params
-	if len(id) != 0 {
-		obj.Id = id[0]
-	} else {
-		obj.Id = 100 + rand.Intn(999-100)
+// NewWithBasicAuth returns an API object with Basic Authentication (not recommended). Use NewWithAPIKeyAuth auth instead.
+func NewWithBasicAuth(login, password string) *API {
+	return &API{
+		url:    apiURL,
+		auth:   "Basic " + base64.StdEncoding.EncodeToString([]byte(login+":"+password)),
+		client: &http.Client{},
 	}
-	return obj
 }
 
-/*******************************************************************************
-*** SDK Functions
-*******************************************************************************/
-
-func init() {
-	rand.Seed(time.Now().UnixNano()) // Random seed generator
-	TC.ApiUrl = "https://api.callr.com/json-rpc/v1.1/"
+// NewWithAPIKeyAuth returns an API object with an API Key Authentication.
+func NewWithAPIKeyAuth(key string) *API {
+	return &API{
+		url:    apiURL,
+		auth:   "Api-Key " + key,
+		client: &http.Client{},
+	}
 }
 
-/**
-* Initialisation
-* @param string Login
-* @param string Password
-**/
-func Setup(login, password string, config *Config) {
-	TC.Login = login
-	TC.Password = password
-	TC.Config = config
+// Error implements the error interface. Returns a string with the Code and Message properties.
+func (e *JSONRPCError) Error() string {
+	return fmt.Sprintf("[%d] %s", e.Code, e.Message)
 }
 
-/**
-* Send a request to CALLR webservice
-**/
-func Call(args ...interface{}) (*Response, *Error) {
-	return Send(args[0].(string), args[1:])
-}
-
-/**
-* Send a request to CALLR webservice
-**/
-func Send(method string, params []interface{}, id ...int) (*Response, *Error) {
-	auth := CheckAuth()
-	if auth != nil {
-		return nil, auth
-	}
-	// create object for json encode
-	object := new(Json).make(method, params, id)
-
-	// Create Request
-	// Proxy support
-	var client *http.Client
-	if TC.Config != nil && len(TC.Config.Proxy) > 0 {
-		proxyUrl, err := url.Parse(TC.Config.Proxy)
-		if err != nil {
-			return nil, NewError("PROXY_PARSE_URL_ERROR", 1, nil)
-		}
-		client = &http.Client{Transport: &http.Transport{Proxy: http.ProxyURL(proxyUrl)}}
-	} else {
-		client = &http.Client{}
-	}
-	req, err := http.NewRequest("POST", TC.ApiUrl, bytes.NewBuffer(object.ToString()))
-
-	req.Header.Add("Authorization", "Basic "+TC.Base64())
-	req.Header.Add("Content-Type", "application/json-rpc; charset=utf-8")
-	req.Header.Add("User-Agent", fmt.Sprintf("sdk=GO; sdk-version=%s; lang-version=%s; platform=%s", SDK_VERSION, runtime.Version(), runtime.GOOS))
-
-	resp, err := client.Do(req)
-
-	// Error management
-	if err != nil {
-		return nil, NewError(err.Error(), -1, nil)
-	} else if resp.StatusCode != 200 {
-		return nil, NewError("HTTP_CODE_ERROR", resp.StatusCode, nil)
-	}
-
-	return ParseResponse(resp)
-}
-
-/**
-* Response analysis
-**/
-func ParseResponse(r *http.Response) (resp *Response, error *Error) {
-	defer r.Body.Close()
-
-	content, err := ioutil.ReadAll(r.Body)
-
-	if err != nil {
-		return nil, NewError(err.Error(), -1, nil)
-	}
-
-	resp = new(Response)
-	resp.Body = string(content)
-	err = json.Unmarshal(content, &resp.Json)
-
-	// Error management
-	error = nil
-	if err != nil {
-		return nil, NewError("INVALID_RESPONSE", -1, map[string]interface{}{"response": resp})
-	} else if error, ok := resp.Json["error"]; ok {
-		return nil, NewError(error.(map[string]interface{})["message"].(string), int(error.(map[string]interface{})["code"].(float64)), nil)
-	}
-
-	return
-}
-
-func CheckAuth() *Error {
-	if len(TC.Login) == 0 || len(TC.Password) == 0 {
-		return NewError("CREDENTIALS_NOT_SET", -1, nil)
-	}
+// SetURL changes the URL for the API object
+func (api *API) SetURL(url string) error {
+	api.url = url
 	return nil
 }
 
-func NewError(s string, code int, data map[string]interface{}) (err *Error) {
-	err = new(Error)
-	err.Msg = s
-	err.Code = code
-	err.Data = data
-	return err
+// SetProxy sets a proxy URL to use
+func (api *API) SetProxy(proxy string) error {
+	url, err := url.Parse(proxy)
+
+	if err != nil {
+		return err
+	}
+
+	api.client = &http.Client{
+		Transport: &http.Transport{
+			Proxy: http.ProxyURL(url),
+		},
+	}
+
+	return nil
+}
+
+// Call sends a JSON-RPC 2.0 request to the CALLR API, and returns either a result, or an error. The error may be of type JSONRPCError if the error comes from the API, or a native error if the error is local.
+func (api *API) Call(method string, params ...interface{}) (interface{}, error) {
+	if params == nil {
+		params = []interface{}{} // empty array instead of null
+	}
+
+	request := jsonRCPRequest{
+		ID:      rand.Int63(),
+		Method:  method,
+		Params:  params,
+		JSONRPC: jsonrpcVersion,
+	}
+
+	body, err := json.Marshal(request)
+
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("POST", api.url, bytes.NewBuffer(body))
+
+	req.Header.Add("Authorization", api.auth)
+	req.Header.Add("Content-Type", "application/json-rpc; charset=utf-8")
+	req.Header.Add("User-Agent", fmt.Sprintf("sdk=GO; sdk-version=%s; lang-version=%s; platform=%s",
+		sdkVersion, runtime.Version(), runtime.GOOS))
+
+	resp, err := api.client.Do(req)
+
+	if resp != nil {
+		defer resp.Body.Close()
+	}
+
+	if err != nil {
+		return nil, err
+	}
+
+	var buf []byte
+
+	if buf, err = ioutil.ReadAll(resp.Body); err != nil {
+		return nil, err
+	}
+
+	jsonResponse := jsonRPCResponse{}
+
+	if err = json.Unmarshal(buf, &jsonResponse); err != nil {
+		return nil, err
+	}
+
+	if jsonResponse.Error != nil {
+		return nil, jsonResponse.Error
+	}
+
+	return jsonResponse.Result, nil
+}
+
+func init() {
+	rand.Seed(time.Now().UnixNano())
 }

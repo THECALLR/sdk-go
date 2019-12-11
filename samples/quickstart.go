@@ -1,26 +1,27 @@
+// run this file like this:
+// $ CALLR_API_KEY=yourapikey go run quickstart.go +15559820800
+// obviously, replace the number with your personal number
+// and you should receive an SMS.
+
 package main
 
 import (
 	"fmt"
 	"os"
-	"github.com/THECALLR/sdk-go"
+
+	callr "github.com/THECALLR/sdk-go"
 )
 
 func main() {
+	// use Api Key Auth (recommended) - use the customer portal to generate keys
+	api := callr.NewWithAPIKeyAuth(os.Getenv("CALLR_API_KEY"))
 
-	// initialize instance Callr
-	// retrieve CALLR credentials from environment variables
-	callr.Setup(os.Getenv("CALLR_LOGIN"), os.Getenv("CALLR_PASS"), nil)
-
-	// an optional third parameter let you add options like proxy support
+	// optional: set a proxy
 	// proxy must be in url standard format
 	// http[s]://user:password@host:port
 	// http[s]://host:port
 	// http[s]://host
-
-	// var config callr.Config
-	// config.Proxy = "http://foo:bar@example.com:8080"
-	// callr.Setup("login", "password", &config)
+	// api.SetProxy("http://proxy:port")
 
 	// check for destination phone number parameter
 	if len(os.Args) < 2 {
@@ -30,38 +31,18 @@ func main() {
 
 	// Example to send a SMS
 	// 1. "call" method: each parameter of the method as an argument
-	result, err := callr.Call("sms.send", "SMS", os.Args[1], "Hello, world", map[string]interface{}{
-		"flash_message": false,
-	})
+	result, err := api.Call("sms.send", "SMS", os.Args[1], "Hello, world", nil)
 
 	// error management
 	if err != nil {
-		fmt.Println("Code:", err.Code)
-		fmt.Println("Message:", err.Msg)
-		fmt.Println("Data:", err.Data)
+		if e, ok := err.(*callr.JSONRPCError); ok {
+			fmt.Printf("Remote error: code:%d message:%s data:%v\n", e.Code, e.Message, e.Data)
+		} else {
+			fmt.Println("Local error: ", err)
+		}
 		os.Exit(1)
-	} else {
-		fmt.Println(result)
+		return
 	}
 
-	// 2. "send" method: parameter of the method is an array
-	my_array := []interface{}{
-		"SMS",
-		 os.Args[1],
-		"Hello, world",
-		map[string]interface{}{
-			"flash_message": false,
-		},
-	}
-	result, err = callr.Send("sms.send", my_array)
-
-	// error management
-	if err != nil {
-		fmt.Println("Code:", err.Code)
-		fmt.Println("Message:", err.Msg)
-		fmt.Println("Data:", err.Data)
-		os.Exit(1)
-	} else {
-		fmt.Println(result)
-	}
+	fmt.Println(result)
 }

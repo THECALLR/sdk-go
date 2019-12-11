@@ -1,168 +1,73 @@
 sdk-go
 ======
 
-SDK in Go for CALLR API
+SDK in Go for the CALLR API.
+
+Works with Go 1.11+ (this is a go module), using standard packages only.
 
 ## Quick start
-Install the Go way
-
-    go get github.com/THECALLR/sdk-go
-
-Or get sources from Github
-
-## Initialize your code
 
 ```go
-import "github.com/THECALLR/sdk-go"
+import callr "github.com/THECALLR/sdk-go"
+
+func main() {
+    // use Api Key Auth (recommended) - use the customer portal to generate keys
+    api := callr.NewWithAPIKeyAuth("key")
+    
+    result, err := api.Call("method", params...)
 ```
 
 ## Usage
-### Sending SMS
 
-#### Without options
+### Broadcast
 
-```go
-result, err := callr.Call("sms.send", "SMS", "+33123456789", "Hello, world", nil)
-```
-
-*Method*
-* [sms.send](https://www.callr.com/docs/api/services/sms/#sms.send)
-
-#### Personalized sender
-
-> Your sender must have been authorized and respect the [sms_sender](https://www.callr.com/docs/formats/#sms_sender) format
+#### Broadcast messages to a target
 
 ```go
-result, err := callr.Call("sms.send", "Your Brand", "+33123456789", "Hello world!", nil)
-```
-
-*Method*
-* [sms.send](https://www.callr.com/docs/api/services/sms/#sms.send)
-
-#### If you want to receive replies, do not set a sender - we will automatically use a shortcode
-
-```go
-result, err := callr.Call("sms.send", "", "+33123456789", "Hello world!", nil)
-```
-
-*Method*
-- [sms.send](https://www.callr.com/docs/api/services/sms/#sms.send)
-
-#### Force GSM encoding
-
-```go
-optionSMS := map[string]interface{}{
-    "force_encoding": "GSM",
+target := map[string]interface{}{
+    "number": "+33123456789",
+    "timeout": 30,
+}
+messages := []interface{}{
+    131,
+    132,
+    "TTS|TTS_EN-GB_SERENA|Hello world! how are you ? I hope you enjoy this call. good bye."
 }
 
-result, err := callr.Call("sms.send", "", "+33123456789", "Hello world!", optionSMS)
-```
-
-*Method*
-* [sms.send](https://www.callr.com/docs/api/services/sms/#sms.send)
-
-*Objects*
-* [SMS.Options](https://www.callr.com/docs/objects/#SMS.Options)
-
-#### Long SMS (availability depends on carrier)
-
-```go
-var text bytes.Buffer
-
-text.WriteString("Some super mega ultra long text to test message longer than 160 characters ")
-text.WriteString("Some super mega ultra long text to test message longer than 160 characters ")
-text.WriteString("Some super mega ultra long text to test message longer than 160 characters")
-
-result, err := callr.Call("sms.send", "SMS", "+33123456789", text.String(), nil)
-```
-
-*Method*
-* [sms.send](https://www.callr.com/docs/api/services/sms/#sms.send)
-
-#### Specify your SMS nature (alerting or marketing)
-
-```go
-optionSMS := map[string]interface{}{
-    "nature": "ALERTING",
+options := map[string]interface{}{
+    "cdr_field": "userData",
+    "cli": "BLOCKED",
+    "loop": 2,
 }
 
-result, err := callr.Call("sms.send", "SMS", "+33123456789", "Hello world!", optionSMS)
+result, err := api.Call("calls.broadcast_1", target, messages, options)
 ```
 
-*Method*
-* [sms.send](https://www.callr.com/docs/api/services/sms/#sms.send)
-
-*Objects*
-* [SMS.Options](https://www.callr.com/docs/objects/#SMS.Options)
-
-#### Custom data
+##### Without options
 
 ```go
-optionSMS := map[string]interface{}{
-    "user_data": "42",
+target := map[string]interface{}{
+    "number": "+33123456789",
+    "timeout": 30,
 }
 
-result, err := callr.Call("sms.send", "SMS", "+33123456789", "Hello world!", optionSMS)
+messages := []interface{}{
+    131,
+    132,
+    134,
+}
+
+result, err := api.Call("calls.broadcast_1", target, messages, nil)
 ```
 
 *Method*
-* [sms.send](https://www.callr.com/docs/api/services/sms/#sms.send)
+* [calls.broadcast_1](https://www.callr.com/docs/api/services/calls/#calls.broadcast_1)
 
 *Objects*
-* [SMS.Options](https://www.callr.com/docs/objects/#SMS.Options)
+* [Target](https://www.callr.com/docs/objects/#Target)
+* [Calls.Broadcast1.Options](https://www.callr.com/docs/objects/#Calls.Broadcast1.Options)
 
-
-#### Delivery Notification - set webhook endpoint to receive notifications
-
-```go
-optionSMS := map[string]interface{}{
-       	"webhook": map[string]interface{}{ 
-			"endpoint":"http://yourdomain.com/webhook_endpoint", 
-		},
-    }
-
-
-result, err := callr.Call("sms.send", "SMS", "+33123456789", "Hello world!", optionSMS)
-```
-
-*Method*
-* [sms.send](https://www.callr.com/docs/api/services/sms/#sms.send)
-
-*Objects*
-* [SMS.Options](https://www.callr.com/docs/objects/#SMS.Options)
-
-
-### Inbound SMS - set webhook endpoint to receive inbound messages (MO) and replies
-
-> **Do not set a sender if you want to receive replies** - we will automatically use a shortcode.
-
-```go
-optionSMS := map[string]interface{}{
-       	"webhook": map[string]interface{}{ 
-			"endpoint":"http://yourdomain.com/webhook_endpoint", 
-		},
-    }
-
-result, err := callr.Call("sms.send", "", "+33123456789", "Hello world!", optionSMS)
-```
-
-*Method*
-* [sms.send](https://www.callr.com/docs/api/services/sms/#sms.send)
-
-*Objects*
-* [SMS.Options](https://www.callr.com/docs/objects/#SMS.Options)
-
-
-### Get an SMS
-```go
-result, err := callr.Call("sms.get", "SMSHASH")
-```
-
-*Method*
-* [sms.get](https://www.callr.com/docs/api/services/sms/#sms.get)
-
-*Objects*
-* [SMS](https://www.callr.com/docs/objects/#SMS)
+********************************************************************************
 
 ### REALTIME
 
@@ -173,7 +78,7 @@ options := map[string]interface{}{
     "url": "http://yourdomain.com/realtime_callback_url",
 }
 
-result, err := callr.Call("apps.create", "REALTIME10", "Your app name", options)
+result, err := api.Call("apps.create", "REALTIME10", "Your app name", options)
 ```
 
 *Method*
@@ -196,7 +101,7 @@ callOptions := map[string]interface{}{
     "cli": "BLOCKED",
 }
 
-result, err := callr.Call("calls.realtime", "appHash", target, callOptions)
+result, err := api.Call("calls.realtime", "appHash", target, callOptions)
 ```
 
 *Method*
@@ -209,7 +114,7 @@ result, err := callr.Call("calls.realtime", "appHash", target, callOptions)
 #### Inbound Calls - Assign a phone number to a REALTIME app
 
 ```go
-result, err := callr.call("apps.assign_did", "appHash", "DID ID")
+result, err := api.Call("apps.assign_did", "appHash", "DID ID")
 ```
 
 *Method*
@@ -221,11 +126,160 @@ result, err := callr.call("apps.assign_did", "appHash", "DID ID")
 
 ********************************************************************************
 
+### Sending SMS
+
+#### Without options
+
+```go
+result, err := api.Call("sms.send", "SMS", "+33123456789", "Hello, world", nil)
+```
+
+*Method*
+* [sms.send](https://www.callr.com/docs/api/services/sms/#sms.send)
+
+#### Personalized sender
+
+> Your sender must have been authorized and respect the [sms_sender](https://www.callr.com/docs/formats/#sms_sender) format
+
+```go
+result, err := api.Call("sms.send", "Your Brand", "+33123456789", "Hello world!", nil)
+```
+
+*Method*
+* [sms.send](https://www.callr.com/docs/api/services/sms/#sms.send)
+
+#### If you want to receive replies, do not set a sender - we will automatically use a shortcode
+
+```go
+result, err := api.Call("sms.send", "", "+33123456789", "Hello world!", nil)
+```
+
+*Method*
+- [sms.send](https://www.callr.com/docs/api/services/sms/#sms.send)
+
+#### Force GSM encoding
+
+```go
+optionSMS := map[string]interface{}{
+    "force_encoding": "GSM",
+}
+
+result, err := api.Call("sms.send", "", "+33123456789", "Hello world!", optionSMS)
+```
+
+*Method*
+* [sms.send](https://www.callr.com/docs/api/services/sms/#sms.send)
+
+*Objects*
+* [SMS.Options](https://www.callr.com/docs/objects/#SMS.Options)
+
+#### Long SMS (availability depends on carrier)
+
+```go
+var text bytes.Buffer
+
+text.WriteString("Some super mega ultra long text to test message longer than 160 characters ")
+text.WriteString("Some super mega ultra long text to test message longer than 160 characters ")
+text.WriteString("Some super mega ultra long text to test message longer than 160 characters")
+
+result, err := api.Call("sms.send", "SMS", "+33123456789", text.String(), nil)
+```
+
+*Method*
+* [sms.send](https://www.callr.com/docs/api/services/sms/#sms.send)
+
+#### Specify your SMS nature (alerting or marketing)
+
+```go
+optionSMS := map[string]interface{}{
+    "nature": "ALERTING",
+}
+
+result, err := api.Call("sms.send", "SMS", "+33123456789", "Hello world!", optionSMS)
+```
+
+*Method*
+* [sms.send](https://www.callr.com/docs/api/services/sms/#sms.send)
+
+*Objects*
+* [SMS.Options](https://www.callr.com/docs/objects/#SMS.Options)
+
+#### Custom data
+
+```go
+optionSMS := map[string]interface{}{
+    "user_data": "42",
+}
+
+result, err := api.Call("sms.send", "SMS", "+33123456789", "Hello world!", optionSMS)
+```
+
+*Method*
+* [sms.send](https://www.callr.com/docs/api/services/sms/#sms.send)
+
+*Objects*
+* [SMS.Options](https://www.callr.com/docs/objects/#SMS.Options)
+
+
+#### Delivery Notification - set webhook endpoint to receive notifications
+
+```go
+optionSMS := map[string]interface{}{
+       	"webhook": map[string]interface{}{ 
+			"endpoint":"http://yourdomain.com/webhook_endpoint", 
+		},
+    }
+
+
+result, err := api.Call("sms.send", "SMS", "+33123456789", "Hello world!", optionSMS)
+```
+
+*Method*
+* [sms.send](https://www.callr.com/docs/api/services/sms/#sms.send)
+
+*Objects*
+* [SMS.Options](https://www.callr.com/docs/objects/#SMS.Options)
+
+
+### Inbound SMS - set webhook endpoint to receive inbound messages (MO) and replies
+
+> **Do not set a sender if you want to receive replies** - we will automatically use a shortcode.
+
+```go
+optionSMS := map[string]interface{}{
+       	"webhook": map[string]interface{}{ 
+			"endpoint":"http://yourdomain.com/webhook_endpoint", 
+		},
+    }
+
+result, err := api.Call("sms.send", "", "+33123456789", "Hello world!", optionSMS)
+```
+
+*Method*
+* [sms.send](https://www.callr.com/docs/api/services/sms/#sms.send)
+
+*Objects*
+* [SMS.Options](https://www.callr.com/docs/objects/#SMS.Options)
+
+
+### Get an SMS
+```go
+result, err := api.Call("sms.get", "SMSHASH")
+```
+
+*Method*
+* [sms.get](https://www.callr.com/docs/api/services/sms/#sms.get)
+
+*Objects*
+* [SMS](https://www.callr.com/docs/objects/#SMS)
+
+********************************************************************************
+
 ### DIDs
 
 #### List available countries with DID availability
 ```go
-result, err := callr.Call("did/areacode.countries")
+result, err := api.Call("did/areacode.countries")
 ```
 
 *Method*
@@ -237,7 +291,7 @@ result, err := callr.Call("did/areacode.countries")
 #### Get area codes available for a specific country and DID type
 
 ```go
-result, err := callr.Call("did/areacode.get_list", "US", nil)
+result, err := api.Call("did/areacode.get_list", "US", nil)
 ```
 
 *Method*
@@ -248,7 +302,7 @@ result, err := callr.Call("did/areacode.get_list", "US", nil)
 
 #### Get DID types available for a specific country
 ```go
-result, err := callr.Call("did/areacode.types", "US")
+result, err := api.Call("did/areacode.types", "US")
 ```
 
 *Method*
@@ -260,7 +314,7 @@ result, err := callr.Call("did/areacode.types", "US")
 #### Buy a DID (after a reserve)
 
 ```go
-result, err := callr.Call("did/store.buy_order", "OrderToken")
+result, err := api.Call("did/store.buy_order", "OrderToken")
 ```
 
 *Method*
@@ -272,7 +326,7 @@ result, err := callr.Call("did/store.buy_order", "OrderToken")
 #### Cancel your order (after a reserve)
 
 ```go
-result, err := callr.Call("did/store.cancel_order", "OrderToken")
+result, err := api.Call("did/store.cancel_order", "OrderToken")
 ```
 
 *Method*
@@ -281,7 +335,7 @@ result, err := callr.Call("did/store.cancel_order", "OrderToken")
 #### Cancel a DID subscription
 
 ```go
-result, err := callr.Call("did/store.cancel_subscription", "DID ID")
+result, err := api.Call("did/store.cancel_subscription", "DID ID")
 ```
 
 *Method*
@@ -290,7 +344,7 @@ result, err := callr.Call("did/store.cancel_subscription", "DID ID")
 #### View your store quota status
 
 ```go
-result, err := callr.Call("did/store.get_quota_status")
+result, err := api.Call("did/store.get_quota_status")
 ```
 
 *Method*
@@ -302,7 +356,7 @@ result, err := callr.Call("did/store.get_quota_status")
 #### Get a quote without reserving a DID
 
 ```go
-result, err := callr.Call("did/store.get_quote", 0, "GOLD", 1)
+result, err := api.Call("did/store.get_quote", 0, "GOLD", 1)
 ```
 
 *Method*
@@ -314,7 +368,7 @@ result, err := callr.Call("did/store.get_quote", 0, "GOLD", 1)
 #### Reserve a DID
 
 ```go
-result, err := callr.Call("did/store.reserve", 0, "GOLD", 1, "RANDOM")
+result, err := api.Call("did/store.reserve", 0, "GOLD", 1, "RANDOM")
 ```
 
 *Method*
@@ -326,7 +380,7 @@ result, err := callr.Call("did/store.reserve", 0, "GOLD", 1, "RANDOM")
 #### View your order
 
 ```go
-result, err := callr.Call("did/store.view_order", "OrderToken")
+result, err := api.Call("did/store.view_order", "OrderToken")
 ```
 
 *Method*
@@ -337,80 +391,12 @@ result, err := callr.Call("did/store.view_order", "OrderToken")
 
 ********************************************************************************
 
-### Conferencing
-
-#### Create a conference room
-
-```go
-params := map[string]interface{}{
-    "open": true,
-}
-access := []interface{}{}
-
-result, err := callr.Call("conference/10.create_room", "room name", params, access)
-```
-
-*Method*
-* [conference/10.create_room](https://www.callr.com/docs/api/services/conference/10/#conference/10.create_room)
-
-*Objects*
-* [CONFERENCE10](https://www.callr.com/docs/objects/#CONFERENCE10)
-* [CONFERENCE10.Room.Access](https://www.callr.com/docs/objects/#CONFERENCE10.Room.Access)
-
-#### Assign a DID to a room
-
-```go
-result, err := callr.Call("conference/10.assign_did", "Room ID", "DID ID")
-```
-
-*Method*
-* [conference/10.assign_did](https://www.callr.com/docs/api/services/conference/10/#conference/10.assign_did)
-
-#### Create a PIN protected conference room
-
-```go
-params := map[string]interface{}{
-    "open": true,
-}
-access := []interface{}{
-    map[string]interface{}{
-        "pin": "1234",
-        "level": "GUEST",
-    },
-    map[string]interface{}{
-        "pin": "4321",
-        "level": "ADMIN",
-        "phone_number": "+33123456789",
-    },
-}
-
-result, err := callr.Call("conference/10.create_room", "room name", params, access)
-```
-
-*Method*
-* [conference/10.create_room](https://www.callr.com/docs/api/services/conference/10/#conference/10.create_room)
-
-*Objects*
-* [CONFERENCE10](https://www.callr.com/docs/objects/#CONFERENCE10)
-* [CONFERENCE10.Room.Access](https://www.callr.com/docs/objects/#CONFERENCE10.Room.Access)
-
-#### Call a room access
-
-```go
-result, err := callr.Call("conference/10.call_room_access", "Room Access ID", "BLOCKED", true)
-```
-
-*Method*
-* [conference/10.call_room_access](https://www.callr.com/docs/api/services/conference/10/#conference/10.call_room_access)
-
-********************************************************************************
-
 ### Media
 
 #### List your medias
 
 ```go
-result, err := callr.Call("media/library.get_list", nil)
+result, err := api.Call("media/library.get_list", nil)
 ```
 
 *Method*
@@ -419,7 +405,7 @@ result, err := callr.Call("media/library.get_list", nil)
 #### Create an empty media
 
 ```go
-result, err := callr.Call("media/library.create", "name")
+result, err := api.Call("media/library.create", "name")
 ```
 
 *Method*
@@ -428,9 +414,9 @@ result, err := callr.Call("media/library.create", "name")
 #### Upload a media
 
 ```go
-media_id := 0
+mediaID := 0
 
-result, err := callr.Call("media/library.set_content_from_file", media_id, "imported temporary file name")
+result, err := api.Call("media/library.set_content_from_file", mediaID, "imported temporary file name")
 ```
 
 *Method*
@@ -439,79 +425,10 @@ result, err := callr.Call("media/library.set_content_from_file", media_id, "impo
 #### Use Text-to-Speech
 
 ```go
-media_id := 0
+mediaID := 0
 
-result, err := callr.Call("media/tts.set_content", media_id, "Hello world!", "TTS-EN-GB_SERENA", nil)
+result, err := api.Call("media/tts.set_content", mediaID, "Hello world!", "TTS-EN-GB_SERENA", nil)
 ```
 
 *Method*
 * [media/tts.set_content](https://www.callr.com/docs/api/services/media/tts/#media/tts.set_content)
-
-********************************************************************************
-
-### CDR
-
-#### Get inbound or outbound CDRs
-```go
-from := "YYYY-MM-DD HH:MM:SS"
-to := "YYYY-MM-DD HH:MM:SS"
-
-result, err := callr.Call("cdr.get", "OUT", from, to, nil, nil)
-```
-
-*Method*
-* [cdr.get](https://www.callr.com/docs/api/services/cdr/#cdr.get)
-
-*Objects*
-* [CDR.In](https://www.callr.com/docs/objects/#CDR.In)
-* [CDR.Out](https://www.callr.com/docs/objects/#CDR.Out)
-
-********************************************************************************
-
-### SENDR
-
-#### Broadcast messages to a target
-
-```go
-target := map[string]interface{}{
-    "number": "+33123456789",
-    "timeout": 30,
-}
-messages := []interface{}{
-    131,
-    132,
-    "TTS|TTS_EN-GB_SERENA|Hello world! how are you ? I hope you enjoy this call. good bye."
-}
-
-options := map[string]interface{}{
-    "cdr_field": "userData",
-    "cli": "BLOCKED",
-    "loop": 2,
-}
-
-result, err := callr.Call("calls.broadcast_1", target, messages, options)
-```
-
-##### Without options
-
-```go
-target := map[string]interface{}{
-    "number": "+33123456789",
-    "timeout": 30,
-}
-
-messages := []interface{}{
-    131,
-    132,
-    134,
-}
-
-result, err := callr.Call("calls.broadcast_1", target, messages, nil)
-```
-
-*Method*
-* [calls.broadcast_1](https://www.callr.com/docs/api/services/calls/#calls.broadcast_1)
-
-*Objects*
-* [Target](https://www.callr.com/docs/objects/#Target)
-* [Calls.Broadcast1.Options](https://www.callr.com/docs/objects/#Calls.Broadcast1.Options)
