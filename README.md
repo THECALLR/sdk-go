@@ -3,7 +3,7 @@ sdk-go
 
 SDK in Go for the CALLR API.
 
-Works with Go 1.11+ (this is a go module), using standard packages only.
+Works with Go 1.16+, using standard packages only.
 
 ## Quick start
 

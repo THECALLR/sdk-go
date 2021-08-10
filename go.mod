@@ -1,3 +1,3 @@
 module github.com/THECALLR/sdk-go/v2
 
-go 1.13
+go 1.16
