@@ -8,13 +8,13 @@ Works with Go 1.11+ (this is a go module), using standard packages only.
 ## Quick start
 
 ```go
-import callr "github.com/THECALLR/sdk-go"
+import callr "github.com/THECALLR/sdk-go/v2"
 
 func main() {
     // use Api Key Auth (recommended) - use the customer portal to generate keys
     api := callr.NewWithAPIKeyAuth("key")
     
-    result, err := api.Call("method", params...)
+    result, err := api.Call(context.Background(), "method", params...)
 ```
 
 ## Usage

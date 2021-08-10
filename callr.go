@@ -1,14 +1,19 @@
 // Package callr implements the CALLR API, using JSON-RPC 2.0. See https://www.callr.com/ and https://www.callr.com/docs/.
+
+// This package may emit logs when errors occur when communicating with the API.
+// The default logging function is log.Printf from the standard library. You can change
+// the logging function with SetLogFunc.
 //
 // Usage
 //
 //    package main
 //
 //    import (
+//        "context"
 //        "fmt"
 //        "os"
 //
-//        callr "github.com/THECALLR/sdk-go"
+//        callr "github.com/THECALLR/sdk-go/v2"
 //    )
 //
 //    func main() {
@@ -27,15 +32,16 @@
 //            os.Exit(1)
 //        }
 //
-//        // Example to send a SMS
-//        result, err := api.Call("sms.send", "SMS", os.Args[1], "Hello, world", nil)
+//        // Example to send an SMS
+//        result, err := api.Call(context.Background(), "sms.send", "SMS", os.Args[1], "Hello, world", nil)
 //
 //        // error management
 //        if err != nil {
-//            if e, ok := err.(*callr.JSONRPCError); ok {
-//                fmt.Printf("Remote error: code:%d message:%s data:%v\n", e.Code, e.Message, e.Data)
+//            var jsonRpcError *callr.JSONRPCError
+//            if errors.As(err, &jsonRpcError) {
+//                fmt.Printf("API error: code:%d message:%s data:%v\n", jsonRpcError.Code, jsonRpcError.Message, jsonRpcError.Data)
 //            } else {
-//                fmt.Println("Local error: ", err)
+//                fmt.Println("Transport error: ", err)
 //            }
 //            os.Exit(1)
 //        }
@@ -46,15 +52,17 @@ package callr
 
 import (
 	"bytes"
+	"context"
 	"encoding/base64"
 	"encoding/json"
+	"errors"
 	"fmt"
-	"io/ioutil"
+	"io"
+	"log"
 	"math/rand"
 	"net/http"
 	"net/url"
 	"runtime"
-	"time"
 )
 
 // internal types
@@ -75,7 +83,7 @@ type jsonRPCResponse struct {
 
 // API represents a connection to the CALLR API.
 type API struct {
-	url    string
+	urls   []string
 	auth   string
 	client *http.Client
 }
@@ -87,16 +95,24 @@ type JSONRPCError struct {
 	Data    interface{} `json:"data"`
 }
 
+type LogFunc func(string, ...interface{}) // Printf style
+
 const (
 	apiURL         = "https://api.callr.com/json-rpc/v1.1/"
-	sdkVersion     = "1.0"
+	sdkVersion     = "2.0"
 	jsonrpcVersion = "2.0"
+	maxRetries     = 3 // on multiple URLs
+)
+
+var (
+	defaultURLs = []string{apiURL}
+	logFunc     = log.Printf
 )
 
 // NewWithBasicAuth returns an API object with Basic Authentication (not recommended). Use NewWithAPIKeyAuth auth instead.
 func NewWithBasicAuth(login, password string) *API {
 	return &API{
-		url:    apiURL,
+		urls:   defaultURLs,
 		auth:   "Basic " + base64.StdEncoding.EncodeToString([]byte(login+":"+password)),
 		client: &http.Client{},
 	}
@@ -105,7 +121,7 @@ func NewWithBasicAuth(login, password string) *API {
 // NewWithAPIKeyAuth returns an API object with an API Key Authentication.
 func NewWithAPIKeyAuth(key string) *API {
 	return &API{
-		url:    apiURL,
+		urls:   defaultURLs,
 		auth:   "Api-Key " + key,
 		client: &http.Client{},
 	}
@@ -116,9 +132,31 @@ func (e *JSONRPCError) Error() string {
 	return fmt.Sprintf("[%d] %s", e.Code, e.Message)
 }
 
+// SetLogFunc can be used to change the default logger (log.Printf). Set to nil to disable package logging.
+func SetLogFunc(fn LogFunc) error {
+	if fn == nil {
+		fn = func(string, ...interface{}) {
+			// do nothing
+		}
+	}
+
+	logFunc = fn
+	return nil
+}
+
 // SetURL changes the URL for the API object
 func (api *API) SetURL(url string) error {
-	api.url = url
+	api.urls = []string{url}
+	return nil
+}
+
+// SetURLs sets multiple URL for the API object. One URL is randomly selected when querying the API.
+func (api *API) SetURLs(urls []string) error {
+	if urls == nil {
+		return errors.New("urls cannot be nil")
+	}
+
+	api.urls = urls
 	return nil
 }
 
@@ -139,8 +177,9 @@ func (api *API) SetProxy(proxy string) error {
 	return nil
 }
 
-// Call sends a JSON-RPC 2.0 request to the CALLR API, and returns either a result, or an error. The error may be of type JSONRPCError if the error comes from the API, or a native error if the error is local.
-func (api *API) Call(method string, params ...interface{}) (interface{}, error) {
+// Call sends a JSON-RPC 2.0 request to the CALLR API, and returns either a result or an error.
+// The error may be of type *JSONRPCError if the error comes from the API, or a native error otherwise.
+func (api *API) Call(ctx context.Context, method string, params ...interface{}) (interface{}, error) {
 	if params == nil {
 		params = []interface{}{} // empty array instead of null
 	}
@@ -158,42 +197,83 @@ func (api *API) Call(method string, params ...interface{}) (interface{}, error) 
 		return nil, err
 	}
 
-	req, err := http.NewRequest("POST", api.url, bytes.NewBuffer(body))
+	urls := make([]string, len(api.urls))
+	copy(urls, api.urls)
 
-	req.Header.Add("Authorization", api.auth)
-	req.Header.Add("Content-Type", "application/json-rpc; charset=utf-8")
-	req.Header.Add("User-Agent", fmt.Sprintf("sdk=GO; sdk-version=%s; lang-version=%s; platform=%s",
-		sdkVersion, runtime.Version(), runtime.GOOS))
+	var lastError error
 
-	resp, err := api.client.Do(req)
+	for try := 0; try <= maxRetries; try++ {
+		if len(urls) == 0 {
+			return nil, lastError
+		}
 
-	if resp != nil {
-		defer resp.Body.Close()
+		randomIndex := rand.Intn(len(urls))
+		url := urls[randomIndex]
+
+		// slice index
+		if randomIndex < len(urls)-1 {
+			urls = append(urls[0:randomIndex], urls[randomIndex+1:]...)
+		} else {
+			urls = urls[:len(urls)-1]
+		}
+
+		req, err := http.NewRequestWithContext(ctx, "POST", url, bytes.NewBuffer(body))
+
+		if err != nil {
+			return nil, err
+		}
+
+		req.Header.Add("Authorization", api.auth)
+		req.Header.Add("Content-Type", "application/json-rpc; charset=utf-8")
+		req.Header.Add("User-Agent", fmt.Sprintf("sdk=GO; sdk-version=%s; lang-version=%s; platform=%s",
+			sdkVersion, runtime.Version(), runtime.GOOS))
+
+		resp, err := api.client.Do(req)
+
+		if resp != nil {
+			defer resp.Body.Close()
+		}
+
+		if err != nil {
+			lastError = err
+			logFunc("[warning] url \"%s\" error: %s\n", url, err)
+			// retry
+			continue
+		}
+
+		var buf []byte
+
+		if buf, err = io.ReadAll(resp.Body); err != nil {
+			return nil, err
+		}
+
+		if resp.StatusCode != http.StatusOK {
+			lastError = fmt.Errorf("response code: %d", resp.StatusCode)
+			logFunc("[warning] url \"%s\" response code: %d\n", url, resp.StatusCode)
+			// retry
+			continue
+		}
+
+		if try > 0 {
+			logFunc("[warning] successful at try: %d, on url: %s\n", try, url)
+		}
+
+		jsonResponse := jsonRPCResponse{}
+
+		if err = json.Unmarshal(buf, &jsonResponse); err != nil {
+			return nil, err
+		}
+
+		if jsonResponse.Error != nil {
+			return nil, jsonResponse.Error
+		}
+
+		return jsonResponse.Result, nil
 	}
 
-	if err != nil {
-		return nil, err
+	if lastError == nil {
+		lastError = errors.New("unknown error")
 	}
 
-	var buf []byte
-
-	if buf, err = ioutil.ReadAll(resp.Body); err != nil {
-		return nil, err
-	}
-
-	jsonResponse := jsonRPCResponse{}
-
-	if err = json.Unmarshal(buf, &jsonResponse); err != nil {
-		return nil, err
-	}
-
-	if jsonResponse.Error != nil {
-		return nil, jsonResponse.Error
-	}
-
-	return jsonResponse.Result, nil
-}
-
-func init() {
-	rand.Seed(time.Now().UnixNano())
+	return nil, lastError
 }

@@ -6,10 +6,12 @@
 package main
 
 import (
+	"context"
+	"errors"
 	"fmt"
 	"os"
 
-	callr "github.com/THECALLR/sdk-go"
+	callr "github.com/THECALLR/sdk-go/v2"
 )
 
 func main() {
@@ -29,16 +31,21 @@ func main() {
 		os.Exit(1)
 	}
 
+	// context
+	ctx := context.Background()
+
 	// Example to send a SMS
 	// 1. "call" method: each parameter of the method as an argument
-	result, err := api.Call("sms.send", "SMS", os.Args[1], "Hello, world", nil)
+	result, err := api.Call(ctx, "sms.send", "SMS", os.Args[1], "Hello, world", nil)
 
 	// error management
 	if err != nil {
-		if e, ok := err.(*callr.JSONRPCError); ok {
-			fmt.Printf("Remote error: code:%d message:%s data:%v\n", e.Code, e.Message, e.Data)
+		var jsonRpcError *callr.JSONRPCError
+		if errors.As(err, &jsonRpcError) {
+			fmt.Printf("Remote error: code:%d message:%s data:%v\n",
+				jsonRpcError.Code, jsonRpcError.Message, jsonRpcError.Data)
 		} else {
-			fmt.Println("Local error: ", err)
+			fmt.Println("Transport error: ", err)
 		}
 		os.Exit(1)
 		return
