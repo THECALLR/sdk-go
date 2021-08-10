@@ -1,5 +1,9 @@
 // Package callr implements the CALLR API, using JSON-RPC 2.0. See https://www.callr.com/ and https://www.callr.com/docs/.
 
+// SDK in Go for the CALLR API.
+// Works with Go 1.16+, using standard packages only.
+//
+// Note:
 // This package may emit logs when errors occur when communicating with the API.
 // The default logging function is log.Printf from the standard library. You can change
 // the logging function with SetLogFunc.

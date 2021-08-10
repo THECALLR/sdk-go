@@ -40,7 +40,7 @@ options := map[string]interface{}{
     "loop": 2,
 }
 
-result, err := api.Call("calls.broadcast_1", target, messages, options)
+result, err := api.Call(context.Background(), "calls.broadcast_1", target, messages, options)
 ```
 
 ##### Without options
@@ -57,7 +57,7 @@ messages := []interface{}{
     134,
 }
 
-result, err := api.Call("calls.broadcast_1", target, messages, nil)
+result, err := api.Call(context.Background(), "calls.broadcast_1", target, messages, nil)
 ```
 
 *Method*
@@ -78,7 +78,7 @@ options := map[string]interface{}{
     "url": "http://yourdomain.com/realtime_callback_url",
 }
 
-result, err := api.Call("apps.create", "REALTIME10", "Your app name", options)
+result, err := api.Call(context.Background(), "apps.create", "REALTIME10", "Your app name", options)
 ```
 
 *Method*
@@ -101,7 +101,7 @@ callOptions := map[string]interface{}{
     "cli": "BLOCKED",
 }
 
-result, err := api.Call("calls.realtime", "appHash", target, callOptions)
+result, err := api.Call(context.Background(), "calls.realtime", "appHash", target, callOptions)
 ```
 
 *Method*
@@ -114,7 +114,7 @@ result, err := api.Call("calls.realtime", "appHash", target, callOptions)
 #### Inbound Calls - Assign a phone number to a REALTIME app
 
 ```go
-result, err := api.Call("apps.assign_did", "appHash", "DID ID")
+result, err := api.Call(context.Background(), "apps.assign_did", "appHash", "DID ID")
 ```
 
 *Method*
@@ -131,7 +131,7 @@ result, err := api.Call("apps.assign_did", "appHash", "DID ID")
 #### Without options
 
 ```go
-result, err := api.Call("sms.send", "SMS", "+33123456789", "Hello, world", nil)
+result, err := api.Call(context.Background(), "sms.send", "SMS", "+33123456789", "Hello, world", nil)
 ```
 
 *Method*
@@ -142,7 +142,7 @@ result, err := api.Call("sms.send", "SMS", "+33123456789", "Hello, world", nil)
 > Your sender must have been authorized and respect the [sms_sender](https://www.callr.com/docs/formats/#sms_sender) format
 
 ```go
-result, err := api.Call("sms.send", "Your Brand", "+33123456789", "Hello world!", nil)
+result, err := api.Call(context.Background(), "sms.send", "Your Brand", "+33123456789", "Hello world!", nil)
 ```
 
 *Method*
@@ -151,7 +151,7 @@ result, err := api.Call("sms.send", "Your Brand", "+33123456789", "Hello world!"
 #### If you want to receive replies, do not set a sender - we will automatically use a shortcode
 
 ```go
-result, err := api.Call("sms.send", "", "+33123456789", "Hello world!", nil)
+result, err := api.Call(context.Background(), "sms.send", "", "+33123456789", "Hello world!", nil)
 ```
 
 *Method*
@@ -164,7 +164,7 @@ optionSMS := map[string]interface{}{
     "force_encoding": "GSM",
 }
 
-result, err := api.Call("sms.send", "", "+33123456789", "Hello world!", optionSMS)
+result, err := api.Call(context.Background(), "sms.send", "", "+33123456789", "Hello world!", optionSMS)
 ```
 
 *Method*
@@ -182,7 +182,7 @@ text.WriteString("Some super mega ultra long text to test message longer than 16
 text.WriteString("Some super mega ultra long text to test message longer than 160 characters ")
 text.WriteString("Some super mega ultra long text to test message longer than 160 characters")
 
-result, err := api.Call("sms.send", "SMS", "+33123456789", text.String(), nil)
+result, err := api.Call(context.Background(), "sms.send", "SMS", "+33123456789", text.String(), nil)
 ```
 
 *Method*
@@ -195,7 +195,7 @@ optionSMS := map[string]interface{}{
     "nature": "ALERTING",
 }
 
-result, err := api.Call("sms.send", "SMS", "+33123456789", "Hello world!", optionSMS)
+result, err := api.Call(context.Background(), "sms.send", "SMS", "+33123456789", "Hello world!", optionSMS)
 ```
 
 *Method*
@@ -211,7 +211,7 @@ optionSMS := map[string]interface{}{
     "user_data": "42",
 }
 
-result, err := api.Call("sms.send", "SMS", "+33123456789", "Hello world!", optionSMS)
+result, err := api.Call(context.Background(), "sms.send", "SMS", "+33123456789", "Hello world!", optionSMS)
 ```
 
 *Method*
@@ -231,7 +231,7 @@ optionSMS := map[string]interface{}{
     }
 
 
-result, err := api.Call("sms.send", "SMS", "+33123456789", "Hello world!", optionSMS)
+result, err := api.Call(context.Background(), "sms.send", "SMS", "+33123456789", "Hello world!", optionSMS)
 ```
 
 *Method*
@@ -252,7 +252,7 @@ optionSMS := map[string]interface{}{
 		},
     }
 
-result, err := api.Call("sms.send", "", "+33123456789", "Hello world!", optionSMS)
+result, err := api.Call(context.Background(), "sms.send", "", "+33123456789", "Hello world!", optionSMS)
 ```
 
 *Method*
@@ -264,7 +264,7 @@ result, err := api.Call("sms.send", "", "+33123456789", "Hello world!", optionSM
 
 ### Get an SMS
 ```go
-result, err := api.Call("sms.get", "SMSHASH")
+result, err := api.Call(context.Background(), "sms.get", "SMSHASH")
 ```
 
 *Method*
@@ -279,7 +279,7 @@ result, err := api.Call("sms.get", "SMSHASH")
 
 #### List available countries with DID availability
 ```go
-result, err := api.Call("did/areacode.countries")
+result, err := api.Call(context.Background(), "did/areacode.countries")
 ```
 
 *Method*
@@ -291,7 +291,7 @@ result, err := api.Call("did/areacode.countries")
 #### Get area codes available for a specific country and DID type
 
 ```go
-result, err := api.Call("did/areacode.get_list", "US", nil)
+result, err := api.Call(context.Background(), "did/areacode.get_list", "US", nil)
 ```
 
 *Method*
@@ -302,7 +302,7 @@ result, err := api.Call("did/areacode.get_list", "US", nil)
 
 #### Get DID types available for a specific country
 ```go
-result, err := api.Call("did/areacode.types", "US")
+result, err := api.Call(context.Background(), "did/areacode.types", "US")
 ```
 
 *Method*
@@ -314,7 +314,7 @@ result, err := api.Call("did/areacode.types", "US")
 #### Buy a DID (after a reserve)
 
 ```go
-result, err := api.Call("did/store.buy_order", "OrderToken")
+result, err := api.Call(context.Background(), "did/store.buy_order", "OrderToken")
 ```
 
 *Method*
@@ -326,7 +326,7 @@ result, err := api.Call("did/store.buy_order", "OrderToken")
 #### Cancel your order (after a reserve)
 
 ```go
-result, err := api.Call("did/store.cancel_order", "OrderToken")
+result, err := api.Call(context.Background(), "did/store.cancel_order", "OrderToken")
 ```
 
 *Method*
@@ -335,7 +335,7 @@ result, err := api.Call("did/store.cancel_order", "OrderToken")
 #### Cancel a DID subscription
 
 ```go
-result, err := api.Call("did/store.cancel_subscription", "DID ID")
+result, err := api.Call(context.Background(), "did/store.cancel_subscription", "DID ID")
 ```
 
 *Method*
@@ -344,7 +344,7 @@ result, err := api.Call("did/store.cancel_subscription", "DID ID")
 #### View your store quota status
 
 ```go
-result, err := api.Call("did/store.get_quota_status")
+result, err := api.Call(context.Background(), "did/store.get_quota_status")
 ```
 
 *Method*
@@ -356,7 +356,7 @@ result, err := api.Call("did/store.get_quota_status")
 #### Get a quote without reserving a DID
 
 ```go
-result, err := api.Call("did/store.get_quote", 0, "GOLD", 1)
+result, err := api.Call(context.Background(), "did/store.get_quote", 0, "GOLD", 1)
 ```
 
 *Method*
@@ -368,7 +368,7 @@ result, err := api.Call("did/store.get_quote", 0, "GOLD", 1)
 #### Reserve a DID
 
 ```go
-result, err := api.Call("did/store.reserve", 0, "GOLD", 1, "RANDOM")
+result, err := api.Call(context.Background(), "did/store.reserve", 0, "GOLD", 1, "RANDOM")
 ```
 
 *Method*
@@ -380,7 +380,7 @@ result, err := api.Call("did/store.reserve", 0, "GOLD", 1, "RANDOM")
 #### View your order
 
 ```go
-result, err := api.Call("did/store.view_order", "OrderToken")
+result, err := api.Call(context.Background(), "did/store.view_order", "OrderToken")
 ```
 
 *Method*
@@ -396,7 +396,7 @@ result, err := api.Call("did/store.view_order", "OrderToken")
 #### List your medias
 
 ```go
-result, err := api.Call("media/library.get_list", nil)
+result, err := api.Call(context.Background(), "media/library.get_list", nil)
 ```
 
 *Method*
@@ -405,7 +405,7 @@ result, err := api.Call("media/library.get_list", nil)
 #### Create an empty media
 
 ```go
-result, err := api.Call("media/library.create", "name")
+result, err := api.Call(context.Background(), "media/library.create", "name")
 ```
 
 *Method*
@@ -416,7 +416,7 @@ result, err := api.Call("media/library.create", "name")
 ```go
 mediaID := 0
 
-result, err := api.Call("media/library.set_content_from_file", mediaID, "imported temporary file name")
+result, err := api.Call(context.Background(), "media/library.set_content_from_file", mediaID, "imported temporary file name")
 ```
 
 *Method*
@@ -427,7 +427,7 @@ result, err := api.Call("media/library.set_content_from_file", mediaID, "importe
 ```go
 mediaID := 0
 
-result, err := api.Call("media/tts.set_content", mediaID, "Hello world!", "TTS-EN-GB_SERENA", nil)
+result, err := api.Call(context.Background(), "media/tts.set_content", mediaID, "Hello world!", "TTS-EN-GB_SERENA", nil)
 ```
 
 *Method*
