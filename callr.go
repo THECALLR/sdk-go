@@ -87,9 +87,11 @@ type jsonRPCResponse struct {
 
 // API represents a connection to the CALLR API.
 type API struct {
-	urls   []string
-	auth   string
-	client *http.Client
+	urls         []string
+	auth         string
+	client       *http.Client
+	loginAsType  LoginAsType
+	loginAsValue string
 }
 
 // JSONRPCError is a JSON-RPC 2.0 error, returned by the API. It satisfies the native error interface.
@@ -100,17 +102,31 @@ type JSONRPCError struct {
 }
 
 type LogFunc func(string, ...interface{}) // Printf style
+type LoginAsType string
 
 const (
 	apiURL         = "https://api.callr.com/json-rpc/v1.1/"
 	sdkVersion     = "2.0"
 	jsonrpcVersion = "2.0"
 	maxRetries     = 3 // on multiple URLs
+
+	LoginAsAccountID   LoginAsType = "account.id"
+	LoginAsAccountRef  LoginAsType = "account.hash"
+	LoginAsAccountHash LoginAsType = "account.hash"
+	LoginAsUserID      LoginAsType = "user.id"
+	LoginAsUserLogin   LoginAsType = "user.login"
 )
 
 var (
-	defaultURLs = []string{apiURL}
-	logFunc     = log.Printf
+	defaultURLs       = []string{apiURL}
+	logFunc           = log.Printf
+	validLoginAsTypes = []LoginAsType{
+		LoginAsAccountID,
+		LoginAsAccountRef,
+		LoginAsAccountHash,
+		LoginAsUserID,
+		LoginAsUserLogin,
+	}
 )
 
 // NewWithBasicAuth returns an API object with Basic Authentication (not recommended). Use NewWithAPIKeyAuth auth instead.
@@ -162,6 +178,61 @@ func (api *API) SetURLs(urls []string) error {
 
 	api.urls = urls
 	return nil
+}
+
+// SetLoginAs allows you to connect to the API as a sub account of yours, using different target types.
+func (api *API) SetLoginAs(targetType LoginAsType, value string) error {
+	if len(targetType) == 0 || len(value) == 0 {
+		return errors.New("invalid login-as target type or value")
+	}
+
+	found := false
+
+	for _, target := range validLoginAsTypes {
+		if targetType == target {
+			found = true
+			break
+		}
+	}
+
+	if !found {
+		return fmt.Errorf("invalid login-as target type: %s", targetType)
+	}
+
+	api.loginAsType = targetType
+	api.loginAsValue = value
+
+	return nil
+}
+
+// SetLoginAsSubAccountRef allows you to connect to the API as a sub-account of yours, using the sub-account "ref" field (sometimes called "hash").
+func (api *API) SetLoginAsSubAccountRef(accountRef string) error {
+	if len(accountRef) == 0 {
+		return errors.New("invalid empty login-as account.ref")
+	}
+
+	api.loginAsType = LoginAsAccountRef
+	api.loginAsValue = accountRef
+
+	return nil
+}
+
+// SetLoginAsSubAccountLogin allows you to connect to the API as a sub-account of yours, using the sub-account user "login" field.
+func (api *API) SetLoginAsSubAccountLogin(userLogin string) error {
+	if len(userLogin) == 0 {
+		return errors.New("invalid empty login-as account.ref")
+	}
+
+	api.loginAsType = LoginAsUserLogin
+	api.loginAsValue = userLogin
+
+	return nil
+}
+
+// ResetLoginAs removes the login-as configuration.
+func (api *API) ResetLoginAs() {
+	api.loginAsType = ""
+	api.loginAsValue = ""
 }
 
 // SetProxy sets a proxy URL to use
@@ -231,6 +302,10 @@ func (api *API) Call(ctx context.Context, method string, params ...interface{}) 
 		req.Header.Add("Content-Type", "application/json-rpc; charset=utf-8")
 		req.Header.Add("User-Agent", fmt.Sprintf("sdk=GO; sdk-version=%s; lang-version=%s; platform=%s",
 			sdkVersion, runtime.Version(), runtime.GOOS))
+
+		if len(api.loginAsType) != 0 {
+			req.Header.Add("Callr-Login-As", fmt.Sprintf("%s %s", api.loginAsType, api.loginAsValue))
+		}
 
 		resp, err := api.client.Do(req)
 

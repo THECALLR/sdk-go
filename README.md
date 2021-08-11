@@ -19,6 +19,26 @@ func main() {
 
 ## Usage
 
+### Login-As
+
+If you have sub accounts and want to manage them with your master account, you can use the Login-As feature.
+
+```go
+import callr "github.com/THECALLR/sdk-go/v2"
+
+func main() {
+    // use Api Key Auth (recommended) - use the customer portal to generate keys
+    api := callr.NewWithAPIKeyAuth("key") // master account key
+
+    if err := api.SetLoginAsSubAccountRef("<subAccountRef>"); err != nil {
+        log.Fatalf("[error] cannot login as: %s\n", err)
+    }
+
+    // all following calls will be done as the sub account
+    result, err := api.Call(context.Background(), "method", params...)
+```
+
+
 ### Broadcast
 
 #### Broadcast messages to a target
