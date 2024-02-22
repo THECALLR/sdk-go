@@ -10,48 +10,48 @@
 //
 // Usage
 //
-//    package main
+//	package main
 //
-//    import (
-//        "context"
-//        "fmt"
-//        "os"
+//	import (
+//	    "context"
+//	    "fmt"
+//	    "os"
 //
-//        callr "github.com/THECALLR/sdk-go/v2"
-//    )
+//	    callr "github.com/THECALLR/sdk-go/v2"
+//	)
 //
-//    func main() {
-//        // use Basic Auth (not recommended)
-//        // api := callr.NewWithBasicAuth("login", "password")
+//	func main() {
+//	    // use Basic Auth (not recommended)
+//	    // api := callr.NewWithBasicAuth("login", "password")
 //
-//        // or use Api Key Auth (recommended)
-//        api := api.NewWithAPIKeyAuth("key")
+//	    // or use Api Key Auth (recommended)
+//	    api := api.NewWithAPIKeyAuth("key")
 //
-//        // optional: set a proxy
-//        // api.SetProxy("http://proxy:port")
+//	    // optional: set a proxy
+//	    // api.SetProxy("http://proxy:port")
 //
-//        // check for destination phone number parameter
-//        if len(os.Args) < 2 {
-//            fmt.Println("Please supply destination phone number!")
-//            os.Exit(1)
-//        }
+//	    // check for destination phone number parameter
+//	    if len(os.Args) < 2 {
+//	        fmt.Println("Please supply destination phone number!")
+//	        os.Exit(1)
+//	    }
 //
-//        // Example to send an SMS
-//        result, err := api.Call(context.Background(), "sms.send", "SMS", os.Args[1], "Hello, world", nil)
+//	    // Example to send an SMS
+//	    result, err := api.Call(context.Background(), "sms.send", "SMS", os.Args[1], "Hello, world", nil)
 //
-//        // error management
-//        if err != nil {
-//            var jsonRpcError *callr.JSONRPCError
-//            if errors.As(err, &jsonRpcError) {
-//                fmt.Printf("API error: code:%d message:%s data:%v\n", jsonRpcError.Code, jsonRpcError.Message, jsonRpcError.Data)
-//            } else {
-//                fmt.Println("Transport error: ", err)
-//            }
-//            os.Exit(1)
-//        }
+//	    // error management
+//	    if err != nil {
+//	        var jsonRpcError *callr.JSONRPCError
+//	        if errors.As(err, &jsonRpcError) {
+//	            fmt.Printf("API error: code:%d message:%s data:%v\n", jsonRpcError.Code, jsonRpcError.Message, jsonRpcError.Data)
+//	        } else {
+//	            fmt.Println("Transport error: ", err)
+//	        }
+//	        os.Exit(1)
+//	    }
 //
-//        fmt.Println(result)
-//    }
+//	    fmt.Println(result)
+//	}
 package callr
 
 import (
@@ -67,6 +67,8 @@ import (
 	"net/http"
 	"net/url"
 	"runtime"
+	"strconv"
+	"strings"
 )
 
 // internal types
@@ -99,6 +101,12 @@ type JSONRPCError struct {
 	Code    int64       `json:"code"`
 	Message string      `json:"message"`
 	Data    interface{} `json:"data"`
+}
+
+// HTTPError is an HTTP error with a code and a message. It satisfies the native error interface.
+type HTTPError struct {
+	Code    int
+	Message string
 }
 
 type LogFunc func(string, ...interface{}) // Printf style
@@ -149,6 +157,11 @@ func NewWithAPIKeyAuth(key string) *API {
 
 // Error implements the error interface. Returns a string with the Code and Message properties.
 func (e *JSONRPCError) Error() string {
+	return fmt.Sprintf("[%d] %s", e.Code, e.Message)
+}
+
+// Error implements the error interface. Returns a string with the Code and Message properties.
+func (e *HTTPError) Error() string {
 	return fmt.Sprintf("[%d] %s", e.Code, e.Message)
 }
 
@@ -327,7 +340,7 @@ func (api *API) Call(ctx context.Context, method string, params ...interface{}) 
 		}
 
 		if resp.StatusCode != http.StatusOK {
-			lastError = fmt.Errorf("response code: %d", resp.StatusCode)
+			lastError = newHTTPError(resp)
 			logFunc("[warning] url \"%s\" response code: %d\n", url, resp.StatusCode)
 			// retry
 			continue
@@ -355,4 +368,17 @@ func (api *API) Call(ctx context.Context, method string, params ...interface{}) 
 	}
 
 	return nil, lastError
+}
+
+func newHTTPError(resp *http.Response) error {
+	status := resp.Status
+	code := strconv.Itoa(resp.StatusCode)
+
+	// remove the status code from the message
+	status = strings.TrimPrefix(status, code)
+
+	return &HTTPError{
+		Code:    resp.StatusCode,
+		Message: strings.TrimLeft(status, " "),
+	}
 }
