@@ -1,87 +1,86 @@
-// Package callr implements the CALLR API, using JSON-RPC 2.0. See https://www.callr.com/ and https://www.callr.com/docs/.
+/*
+Package callr implements the Callr API, using JSON-RPC 2.0. See https://www.callr.com/ and https://www.callr.com/docs/.
 
-// SDK in Go for the CALLR API.
-// Works with Go 1.22+, using standard packages only.
-//
-// Note:
-// This package may emit logs when errors occur when communicating with the API.
-// The default logging function is log.Printf from the standard library. You can change
-// the logging function with SetLogFunc.
-//
-// Usage
-//
-// 	package main
-//
-// 	import (
-// 		"context"
-// 		"encoding/json"
-// 		"fmt"
-// 		"log/slog"
-// 		"os"
-// 		"strings"
-//
-// 		callr "github.com/THECALLR/sdk-go/v2"
-// 	)
-//
-// 	func main() {
-// 		// optional: use slog instead of log.Printf
-// 		callr.SetLogFunc(func(format string, args ...any) {
-// 			slog.Warn(fmt.Sprintf(strings.TrimPrefix(format, "[warning] "), args...))
-// 		})
-//
-// 		// Api Key Auth (use the customer portal to generate keys)
-// 		api := callr.NewWithAPIKeyAuth(os.Getenv("CALLR_API_KEY"))
-//
-// 		// optional: set a proxy
-// 		// proxy must be in url standard format
-// 		// http[s]://user:password@host:port
-// 		// http[s]://host:port
-// 		// http[s]://host
-// 		// api.SetProxy("http://proxy:port")
-//
-// 		// check for destination phone number parameter
-// 		if len(os.Args) < 2 {
-// 			// fmt.Println("Please supply destination phone number!")
-// 			slog.Error("Please supply destination phone number!")
-// 			os.Exit(1)
-// 		}
-//
-// 		// our context
-// 		ctx := context.Background()
-//
-// 		// Example to send a SMS
-// 		// 1. "call" method: each parameter of the method as an argument
-// 		result, err := api.Call(ctx, "sms.send", "SMS", os.Args[1], "Hello, world", nil)
-//
-// 		// error management
-// 		if err != nil {
-// 			switch e := err.(type) {
-// 			case *callr.JSONRPCError:
-// 				slog.Error("JSON-RPC Error",
-// 					"code", e.Code,
-// 					"message", e.Message,
-// 					"data", e.Data)
-// 			case *callr.HTTPError:
-// 				slog.Error("HTTP Error",
-// 					"code", e.Code,
-// 					"message", e.Message)
-// 			default:
-// 				slog.Error("Other error", "error", err)
-// 			}
-// 			os.Exit(1)
-// 		}
-//
-// 		// the sms.send JSON-RPC method returns a string
-// 		var hash string
-//
-// 		if err := json.Unmarshal(result, &hash); err != nil {
-// 			slog.Error("Error unmarshalling result", "error", err)
-// 			os.Exit(1)
-// 		}
-//
-// 		slog.Info("SMS sent", "hash", hash)
-// 	}
+Requires Go 1.22+, using standard packages only.
 
+Note:
+This package may emit logs when errors occur when communicating with the API.
+The default logging function is log.Printf from the standard library. You can change
+the logging function with [SetLogFunc].
+
+Usage:
+
+	package main
+
+	import (
+	  "context"
+	  "encoding/json"
+	  "fmt"
+	  "log/slog"
+	  "os"
+	  "strings"
+
+	  callr "github.com/THECALLR/sdk-go/v2"
+	)
+
+	func main() {
+	  // optional: use slog instead of log.Printf
+	  callr.SetLogFunc(func(format string, args ...any) {
+	    slog.Warn(fmt.Sprintf(strings.TrimPrefix(format, "[warning] "), args...))
+	  })
+
+	  // Api Key Auth (use the customer portal to generate keys)
+	  api := callr.NewWithAPIKeyAuth(os.Getenv("CALLR_API_KEY"))
+
+	  // optional: set a proxy
+	  // proxy must be in url standard format
+	  // http[s]://user:password@host:port
+	  // http[s]://host:port
+	  // http[s]://host
+	  // api.SetProxy("http://proxy:port")
+
+	  // check for destination phone number parameter
+	  if len(os.Args) < 2 {
+	    // fmt.Println("Please supply destination phone number!")
+	    slog.Error("Please supply destination phone number!")
+	    os.Exit(1)
+	  }
+
+	  // our context
+	  ctx := context.Background()
+
+	  // Send a SMS with "sms.send" JSON-RPC method
+	  result, err := api.Call(ctx, "sms.send", "SMS", os.Args[1], "Hello, world", nil)
+
+	  // error management
+	  if err != nil {
+	    switch e := err.(type) {
+	    case *callr.JSONRPCError:
+	      slog.Error("JSON-RPC Error",
+	        "code", e.Code,
+	        "message", e.Message,
+	        "data", e.Data)
+	    case *callr.HTTPError:
+	      slog.Error("HTTP Error",
+	        "code", e.Code,
+	        "message", e.Message)
+	    default:
+	      slog.Error("Other error", "error", err)
+	    }
+	    os.Exit(1)
+	  }
+
+	  // the sms.send JSON-RPC method returns a string
+	  var hash string
+
+	  if err := json.Unmarshal(result, &hash); err != nil {
+	    slog.Error("Error unmarshalling result", "error", err)
+	    os.Exit(1)
+	  }
+
+	  slog.Info("SMS sent", "hash", hash)
+	}
+*/
 package callr
 
 import (
@@ -116,7 +115,7 @@ type jsonRPCResponse struct {
 	Error   *JSONRPCError   `json:"error,omitempty"`
 }
 
-// API represents a connection to the CALLR API.
+// API represents a connection to the Callr API.
 type API struct {
 	urls         []string
 	auth         string
@@ -166,7 +165,7 @@ var (
 	}
 )
 
-// NewWithAPIKeyAuth returns an API object with an API Key Authentication.
+// NewWithAPIKeyAuth returns an [API] object with API Key Authentication.
 func NewWithAPIKeyAuth(key string) *API {
 	return &API{
 		urls:   defaultURLs,
@@ -284,8 +283,8 @@ func (api *API) SetProxy(proxy string) error {
 	return nil
 }
 
-// Call sends a JSON-RPC 2.0 request to the CALLR API, and returns either a result or an error.
-// The error may be of type *JSONRPCError if the error comes from the API, of type *HTTPError if the error comes from the HTTP transport,
+// Call sends a JSON-RPC 2.0 request to the Callr API, and returns either a result or an error.
+// The error may be of type [*JSONRPCError] if the error comes from the API, of type [*HTTPError] if the error comes from the HTTP transport,
 // or a native error otherwise.
 func (api *API) Call(ctx context.Context, method string, params ...any) (json.RawMessage, error) {
 	if params == nil {

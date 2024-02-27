@@ -41,8 +41,7 @@ func main() {
 	// our context
 	ctx := context.Background()
 
-	// Example to send a SMS
-	// 1. "call" method: each parameter of the method as an argument
+	// Send a SMS with "sms.send" JSON-RPC method
 	result, err := api.Call(ctx, "sms.send", "SMS", os.Args[1], "Hello, world", nil)
 
 	// error management
