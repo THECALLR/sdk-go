@@ -1,21 +1,27 @@
 // run this file like this:
 // $ CALLR_API_KEY=yourapikey go run quickstart.go +15559820800
-// obviously, replace the number with your personal number
-// and you should receive an SMS.
+// replace the number with your personal number and you should receive the SMS.
 
 package main
 
 import (
 	"context"
-	"errors"
+	"encoding/json"
 	"fmt"
+	"log/slog"
 	"os"
+	"strings"
 
 	callr "github.com/THECALLR/sdk-go/v2"
 )
 
 func main() {
-	// use Api Key Auth (recommended) - use the customer portal to generate keys
+	// optional: use slog instead of log.Printf
+	callr.SetLogFunc(func(format string, args ...any) {
+		slog.Warn(fmt.Sprintf(strings.TrimPrefix(format, "[warning] "), args...))
+	})
+
+	// Api Key Auth (use the customer portal to generate keys)
 	api := callr.NewWithAPIKeyAuth(os.Getenv("CALLR_API_KEY"))
 
 	// optional: set a proxy
@@ -27,11 +33,12 @@ func main() {
 
 	// check for destination phone number parameter
 	if len(os.Args) < 2 {
-		fmt.Println("Please supply destination phone number!")
+		// fmt.Println("Please supply destination phone number!")
+		slog.Error("Please supply destination phone number!")
 		os.Exit(1)
 	}
 
-	// context
+	// our context
 	ctx := context.Background()
 
 	// Example to send a SMS
@@ -40,16 +47,29 @@ func main() {
 
 	// error management
 	if err != nil {
-		var jsonRpcError *callr.JSONRPCError
-		if errors.As(err, &jsonRpcError) {
-			fmt.Printf("Remote error: code:%d message:%s data:%v\n",
-				jsonRpcError.Code, jsonRpcError.Message, jsonRpcError.Data)
-		} else {
-			fmt.Println("Transport error: ", err)
+		switch e := err.(type) {
+		case *callr.JSONRPCError:
+			slog.Error("JSON-RPC Error",
+				"code", e.Code,
+				"message", e.Message,
+				"data", e.Data)
+		case *callr.HTTPError:
+			slog.Error("HTTP Error",
+				"code", e.Code,
+				"message", e.Message)
+		default:
+			slog.Error("Other error", "error", err)
 		}
 		os.Exit(1)
-		return
 	}
 
-	fmt.Println(result)
+	// the sms.send JSON-RPC method returns a string
+	var hash string
+
+	if err := json.Unmarshal(result, &hash); err != nil {
+		slog.Error("Error unmarshalling result", "error", err)
+		os.Exit(1)
+	}
+
+	slog.Info("SMS sent", "hash", hash)
 }

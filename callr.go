@@ -1,7 +1,7 @@
 // Package callr implements the CALLR API, using JSON-RPC 2.0. See https://www.callr.com/ and https://www.callr.com/docs/.
 
 // SDK in Go for the CALLR API.
-// Works with Go 1.16+, using standard packages only.
+// Works with Go 1.22+, using standard packages only.
 //
 // Note:
 // This package may emit logs when errors occur when communicating with the API.
@@ -10,54 +10,83 @@
 //
 // Usage
 //
-//	package main
+// 	package main
 //
-//	import (
-//	    "context"
-//	    "fmt"
-//	    "os"
+// 	import (
+// 		"context"
+// 		"encoding/json"
+// 		"fmt"
+// 		"log/slog"
+// 		"os"
+// 		"strings"
 //
-//	    callr "github.com/THECALLR/sdk-go/v2"
-//	)
+// 		callr "github.com/THECALLR/sdk-go/v2"
+// 	)
 //
-//	func main() {
-//	    // use Basic Auth (not recommended)
-//	    // api := callr.NewWithBasicAuth("login", "password")
+// 	func main() {
+// 		// optional: use slog instead of log.Printf
+// 		callr.SetLogFunc(func(format string, args ...any) {
+// 			slog.Warn(fmt.Sprintf(strings.TrimPrefix(format, "[warning] "), args...))
+// 		})
 //
-//	    // or use Api Key Auth (recommended)
-//	    api := api.NewWithAPIKeyAuth("key")
+// 		// Api Key Auth (use the customer portal to generate keys)
+// 		api := callr.NewWithAPIKeyAuth(os.Getenv("CALLR_API_KEY"))
 //
-//	    // optional: set a proxy
-//	    // api.SetProxy("http://proxy:port")
+// 		// optional: set a proxy
+// 		// proxy must be in url standard format
+// 		// http[s]://user:password@host:port
+// 		// http[s]://host:port
+// 		// http[s]://host
+// 		// api.SetProxy("http://proxy:port")
 //
-//	    // check for destination phone number parameter
-//	    if len(os.Args) < 2 {
-//	        fmt.Println("Please supply destination phone number!")
-//	        os.Exit(1)
-//	    }
+// 		// check for destination phone number parameter
+// 		if len(os.Args) < 2 {
+// 			// fmt.Println("Please supply destination phone number!")
+// 			slog.Error("Please supply destination phone number!")
+// 			os.Exit(1)
+// 		}
 //
-//	    // Example to send an SMS
-//	    result, err := api.Call(context.Background(), "sms.send", "SMS", os.Args[1], "Hello, world", nil)
+// 		// our context
+// 		ctx := context.Background()
 //
-//	    // error management
-//	    if err != nil {
-//	        var jsonRpcError *callr.JSONRPCError
-//	        if errors.As(err, &jsonRpcError) {
-//	            fmt.Printf("API error: code:%d message:%s data:%v\n", jsonRpcError.Code, jsonRpcError.Message, jsonRpcError.Data)
-//	        } else {
-//	            fmt.Println("Transport error: ", err)
-//	        }
-//	        os.Exit(1)
-//	    }
+// 		// Example to send a SMS
+// 		// 1. "call" method: each parameter of the method as an argument
+// 		result, err := api.Call(ctx, "sms.send", "SMS", os.Args[1], "Hello, world", nil)
 //
-//	    fmt.Println(result)
-//	}
+// 		// error management
+// 		if err != nil {
+// 			switch e := err.(type) {
+// 			case *callr.JSONRPCError:
+// 				slog.Error("JSON-RPC Error",
+// 					"code", e.Code,
+// 					"message", e.Message,
+// 					"data", e.Data)
+// 			case *callr.HTTPError:
+// 				slog.Error("HTTP Error",
+// 					"code", e.Code,
+// 					"message", e.Message)
+// 			default:
+// 				slog.Error("Other error", "error", err)
+// 			}
+// 			os.Exit(1)
+// 		}
+//
+// 		// the sms.send JSON-RPC method returns a string
+// 		var hash string
+//
+// 		if err := json.Unmarshal(result, &hash); err != nil {
+// 			slog.Error("Error unmarshalling result", "error", err)
+// 			os.Exit(1)
+// 		}
+//
+// 		slog.Info("SMS sent", "hash", hash)
+// 	}
+
 package callr
 
 import (
 	"bytes"
 	"context"
-	"encoding/base64"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -74,17 +103,17 @@ import (
 // internal types
 
 type jsonRCPRequest struct {
-	ID      int64         `json:"id"`
-	JSONRPC string        `json:"jsonrpc"`
-	Method  string        `json:"method"`
-	Params  []interface{} `json:"params"`
+	ID      int64  `json:"id"`
+	JSONRPC string `json:"jsonrpc"`
+	Method  string `json:"method"`
+	Params  []any  `json:"params"`
 }
 
 type jsonRPCResponse struct {
-	ID      int64         `json:"id"`
-	JSONRPC string        `json:"jsonrpc"`
-	Result  interface{}   `json:"result,omitempty"`
-	Error   *JSONRPCError `json:"error,omitempty"`
+	ID      int64           `json:"id"`
+	JSONRPC string          `json:"jsonrpc"`
+	Result  json.RawMessage `json:"result,omitempty"`
+	Error   *JSONRPCError   `json:"error,omitempty"`
 }
 
 // API represents a connection to the CALLR API.
@@ -98,9 +127,9 @@ type API struct {
 
 // JSONRPCError is a JSON-RPC 2.0 error, returned by the API. It satisfies the native error interface.
 type JSONRPCError struct {
-	Code    int64       `json:"code"`
-	Message string      `json:"message"`
-	Data    interface{} `json:"data"`
+	Code    int64  `json:"code"`
+	Message string `json:"message"`
+	Data    any    `json:"data"`
 }
 
 // HTTPError is an HTTP error with a code and a message. It satisfies the native error interface.
@@ -109,7 +138,7 @@ type HTTPError struct {
 	Message string
 }
 
-type LogFunc func(string, ...interface{}) // Printf style
+type LogFunc func(string, ...any) // Printf style
 type LoginAsType string
 
 const (
@@ -137,15 +166,6 @@ var (
 	}
 )
 
-// NewWithBasicAuth returns an API object with Basic Authentication (not recommended). Use NewWithAPIKeyAuth auth instead.
-func NewWithBasicAuth(login, password string) *API {
-	return &API{
-		urls:   defaultURLs,
-		auth:   "Basic " + base64.StdEncoding.EncodeToString([]byte(login+":"+password)),
-		client: &http.Client{},
-	}
-}
-
 // NewWithAPIKeyAuth returns an API object with an API Key Authentication.
 func NewWithAPIKeyAuth(key string) *API {
 	return &API{
@@ -166,15 +186,14 @@ func (e *HTTPError) Error() string {
 }
 
 // SetLogFunc can be used to change the default logger (log.Printf). Set to nil to disable package logging.
-func SetLogFunc(fn LogFunc) error {
+func SetLogFunc(fn LogFunc) {
 	if fn == nil {
-		fn = func(string, ...interface{}) {
+		fn = func(string, ...any) {
 			// do nothing
 		}
 	}
 
 	logFunc = fn
-	return nil
 }
 
 // SetURL changes the URL for the API object
@@ -266,10 +285,11 @@ func (api *API) SetProxy(proxy string) error {
 }
 
 // Call sends a JSON-RPC 2.0 request to the CALLR API, and returns either a result or an error.
-// The error may be of type *JSONRPCError if the error comes from the API, or a native error otherwise.
-func (api *API) Call(ctx context.Context, method string, params ...interface{}) (interface{}, error) {
+// The error may be of type *JSONRPCError if the error comes from the API, of type *HTTPError if the error comes from the HTTP transport,
+// or a native error otherwise.
+func (api *API) Call(ctx context.Context, method string, params ...any) (json.RawMessage, error) {
 	if params == nil {
-		params = []interface{}{} // empty array instead of null
+		params = []any{} // empty array instead of null
 	}
 
 	request := jsonRCPRequest{
