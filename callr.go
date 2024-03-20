@@ -196,9 +196,8 @@ func SetLogFunc(fn LogFunc) {
 }
 
 // SetURL changes the URL for the API object
-func (api *API) SetURL(url string) error {
+func (api *API) SetURL(url string) {
 	api.urls = []string{url}
-	return nil
 }
 
 // SetURLs sets multiple URL for the API object. One URL is randomly selected when querying the API.
