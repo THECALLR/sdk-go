@@ -30,14 +30,10 @@ Usage:
 	  })
 
 	  // Api Key Auth (use the customer portal to generate keys)
-	  api := callr.NewWithAPIKeyAuth(os.Getenv("CALLR_API_KEY"))
+	  api := callr.New(os.Getenv("CALLR_API_KEY"))
 
-	  // optional: set a proxy
-	  // proxy must be in url standard format
-	  // http[s]://user:password@host:port
-	  // http[s]://host:port
-	  // http[s]://host
-	  // api.SetProxy("http://proxy:port")
+	  // optional: pass an http.Client with custom settings (ie proxy)
+	  // api := callr.NewWithHttpClient(os.Getenv("CALLR_API_KEY"), &http.Client{})
 
 	  // check for destination phone number parameter
 	  if len(os.Args) < 2 {
@@ -93,7 +89,6 @@ import (
 	"log"
 	"math/rand"
 	"net/http"
-	"net/url"
 	"runtime"
 	"strconv"
 	"strings"
@@ -101,7 +96,7 @@ import (
 
 // internal types
 
-type jsonRCPRequest struct {
+type JSONRPCRequest struct {
 	ID      int64  `json:"id"`
 	JSONRPC string `json:"jsonrpc"`
 	Method  string `json:"method"`
@@ -115,13 +110,17 @@ type jsonRPCResponse struct {
 	Error   *JSONRPCError   `json:"error,omitempty"`
 }
 
+// PreRequestFunc is a function that can be added to the API object to be called before each request.
+type PreRequestFunc func(context.Context, *http.Client, *http.Request, *JSONRPCRequest)
+
 // API represents a connection to the Callr API.
 type API struct {
-	urls         []string
-	auth         string
-	client       *http.Client
-	loginAsType  LoginAsType
-	loginAsValue string
+	urls            []string
+	auth            string
+	client          *http.Client
+	loginAsType     LoginAsType
+	loginAsValue    string
+	preRequestHooks []PreRequestFunc
 }
 
 // JSONRPCError is a JSON-RPC 2.0 error, returned by the API. It satisfies the native error interface.
@@ -165,12 +164,21 @@ var (
 	}
 )
 
-// NewWithAPIKeyAuth returns an [API] object with API Key Authentication.
-func NewWithAPIKeyAuth(key string) *API {
+// New returns an [API] object with API Key Authentication.
+func New(key string) *API {
 	return &API{
 		urls:   defaultURLs,
 		auth:   "Api-Key " + key,
 		client: &http.Client{},
+	}
+}
+
+// NewWithHttpClient returns an [API] object with API Key Authentication and a custom http.Client.
+func (api *API) NewWithHttpClient(key string, client *http.Client) *API {
+	return &API{
+		urls:   defaultURLs,
+		auth:   "Api-Key " + key,
+		client: client,
 	}
 }
 
@@ -265,21 +273,9 @@ func (api *API) ResetLoginAs() {
 	api.loginAsValue = ""
 }
 
-// SetProxy sets a proxy URL to use
-func (api *API) SetProxy(proxy string) error {
-	url, err := url.Parse(proxy)
-
-	if err != nil {
-		return err
-	}
-
-	api.client = &http.Client{
-		Transport: &http.Transport{
-			Proxy: http.ProxyURL(url),
-		},
-	}
-
-	return nil
+// HookPreRequest allows you to add a function that will be called before each request to the API.
+func (api *API) HookPreRequest(f ...PreRequestFunc) {
+	api.preRequestHooks = append(api.preRequestHooks, f...)
 }
 
 // Call sends a JSON-RPC 2.0 request to the Callr API, and returns either a result or an error.
@@ -290,7 +286,7 @@ func (api *API) Call(ctx context.Context, method string, params ...any) (json.Ra
 		params = []any{} // empty array instead of null
 	}
 
-	request := jsonRCPRequest{
+	request := JSONRPCRequest{
 		ID:      rand.Int63(),
 		Method:  method,
 		Params:  params,
@@ -336,6 +332,10 @@ func (api *API) Call(ctx context.Context, method string, params ...any) (json.Ra
 
 		if len(api.loginAsType) != 0 {
 			req.Header.Add("Callr-Login-As", fmt.Sprintf("%s %s", api.loginAsType, api.loginAsValue))
+		}
+
+		for _, hook := range api.preRequestHooks {
+			hook(ctx, api.client, req, &request)
 		}
 
 		resp, err := api.client.Do(req)

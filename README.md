@@ -1,7 +1,7 @@
 sdk-go
 ======
 
-SDK in Go for the CALLR API.
+SDK in Go for the Callr API.
 
 Works with Go 1.22+, using standard packages only.
 
@@ -12,7 +12,7 @@ import callr "github.com/THECALLR/sdk-go/v2"
 
 func main() {
     // Api Key Auth (use the customer portal to generate keys)
-    api := callr.NewWithAPIKeyAuth("key")
+    api := callr.New("key")
     
     result, err := api.Call(context.Background(), "method", params...)
 ```
@@ -28,7 +28,7 @@ import callr "github.com/THECALLR/sdk-go/v2"
 
 func main() {
     // Api Key Auth (use the customer portal to generate keys)
-    api := callr.NewWithAPIKeyAuth("key") // master account key
+    api := callr.New("key") // master account key
 
     if err := api.SetLoginAsSubAccountRef("<subAccountRef>"); err != nil {
         log.Fatalf("[error] cannot login as: %s\n", err)

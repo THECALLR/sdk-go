@@ -22,14 +22,10 @@ func main() {
 	})
 
 	// Api Key Auth (use the customer portal to generate keys)
-	api := callr.NewWithAPIKeyAuth(os.Getenv("CALLR_API_KEY"))
+	api := callr.New(os.Getenv("CALLR_API_KEY"))
 
-	// optional: set a proxy
-	// proxy must be in url standard format
-	// http[s]://user:password@host:port
-	// http[s]://host:port
-	// http[s]://host
-	// api.SetProxy("http://proxy:port")
+	// optional: pass an http.Client with custom settings (ie proxy)
+	// api := callr.NewWithHttpClient(os.Getenv("CALLR_API_KEY"), &http.Client{})
 
 	// check for destination phone number parameter
 	if len(os.Args) < 2 {
@@ -41,7 +37,7 @@ func main() {
 	// our context
 	ctx := context.Background()
 
-	// Send a SMS with "sms.send" JSON-RPC method
+	// Send an SMS with "sms.send" JSON-RPC method
 	result, err := api.Call(ctx, "sms.send", "SMS", os.Args[1], "Hello, world", nil)
 
 	// error management
