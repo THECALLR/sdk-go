@@ -42,6 +42,10 @@
 //
 //        fmt.Println(result)
 //    }
+//
+// Deprecated: this package targets the legacy Callr JSON-RPC API (v1), which will be
+// shut down on 2027-06-30. Migrate to the Callr REST API v2:
+// https://docs.callr.com/reference/migrating-from-json-rpc-v1
 package callr
 
 import (
@@ -74,6 +78,8 @@ type jsonRPCResponse struct {
 }
 
 // API represents a connection to the CALLR API.
+//
+// Deprecated: this SDK targets the legacy Callr JSON-RPC API (v1), which will be shut down on 2027-06-30. Migrate to the Callr REST API v2: https://docs.callr.com/reference/migrating-from-json-rpc-v1
 type API struct {
 	url    string
 	auth   string
@@ -94,6 +100,8 @@ const (
 )
 
 // NewWithBasicAuth returns an API object with Basic Authentication (not recommended). Use NewWithAPIKeyAuth auth instead.
+//
+// Deprecated: this SDK targets the legacy Callr JSON-RPC API (v1), which will be shut down on 2027-06-30. Migrate to the Callr REST API v2: https://docs.callr.com/reference/migrating-from-json-rpc-v1
 func NewWithBasicAuth(login, password string) *API {
 	return &API{
 		url:    apiURL,
@@ -103,6 +111,8 @@ func NewWithBasicAuth(login, password string) *API {
 }
 
 // NewWithAPIKeyAuth returns an API object with an API Key Authentication.
+//
+// Deprecated: this SDK targets the legacy Callr JSON-RPC API (v1), which will be shut down on 2027-06-30. Migrate to the Callr REST API v2: https://docs.callr.com/reference/migrating-from-json-rpc-v1
 func NewWithAPIKeyAuth(key string) *API {
 	return &API{
 		url:    apiURL,
